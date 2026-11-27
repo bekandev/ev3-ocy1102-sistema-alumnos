@@ -1,10 +1,6 @@
-# Sistema Alumnos · SecureDev
+# Sistema Alumnos
 
-API y portal web (Flask) de la **Evaluación Parcial 3 de OCY1102 – Ciberseguridad en desarrollo**.
-Sobre este código, **que es vulnerable a propósito**, construyes un pipeline seguro en Jenkins:
-pruebas, análisis estático, dependencias, OWASP ZAP, despliegue protegido, monitoreo en Grafana y trazabilidad.
-
-> Este repositorio es solo el punto de partida. Las capturas van en **Desarrollo EV3.docx** (sección con el mismo número de evidencia).
+API y portal web hecho en Flask para consultar alumnos de SecureDev. Tiene un pipeline en Jenkins que construye, prueba, revisa la seguridad del código y de las dependencias, escanea la app con OWASP ZAP y recién ahí la despliega a producción. Producción se monitorea con Prometheus y Grafana.
 
 ## Rutas
 
@@ -14,74 +10,77 @@ pruebas, análisis estático, dependencias, OWASP ZAP, despliegue protegido, mon
 | GET | `/hello?name=Ana` | Saludo |
 | GET | `/alumnos` · `/alumnos/<id>` | Listado y detalle de alumnos |
 | GET | `/alumnos/buscar?nombre=Ana` | Búsqueda por nombre |
-| POST | `/login` | Acceso del administrador (formulario) |
+| POST | `/login` | Acceso del administrador |
 | GET | `/health` · `/version` | Estado y versión desplegada |
-| GET | `/metrics` | Métricas para Prometheus (no cambies sus nombres) |
+| GET | `/metrics` | Métricas para Prometheus |
 
-## Contenido
+## Estructura
 
 | Archivo | Para qué sirve |
 |---|---|
-| `app.py` | Aplicación (contiene vulnerabilidades que debes encontrar y corregir) |
-| `tests/` | Pruebas funcionales (pytest). Deben seguir pasando después de corregir |
-| `requirements.txt` | Dependencias de ejecución (antiguas a propósito) |
-| `requirements-dev.txt` | Dependencias solo de pruebas |
-| `Jenkinsfile` | Pipeline base: Build → Test → Deploy Producción. Los marcadores `>>> [ETIQUETA]` indican dónde agregar etapas |
-| `scripts/deploy.sh` | Despliega en `staging` (5001) o `produccion` (5000) y hace prueba de humo |
-| `scripts/zap_scan.py` | Escaneo DAST con OWASP ZAP (spider, pasivo y activo) |
+| `app.py` | La aplicación |
+| `tests/` | Pruebas con pytest |
+| `requirements.txt` | Dependencias de ejecución |
+| `requirements-dev.txt` | Dependencias para las pruebas |
+| `Jenkinsfile` | Pipeline de CI/CD |
+| `.github/dependabot.yml` | Configuración de Dependabot |
+| `scripts/deploy.sh` | Despliega en staging (5001) o producción (5000) y hace una prueba de humo |
+| `scripts/zap_scan.py` | Escaneo de OWASP ZAP (spider, pasivo y activo) |
 | `scripts/trazabilidad.py` | Registro build ↔ versión ↔ commit ↔ hallazgos ↔ despliegue |
-| `scripts/revisar_local.sh` | Pruebas + Bandit + pip-audit en el contenedor taller, antes del push |
-| `scripts/simular_ataque.py` | Ataque de prueba para ver incidentes en Grafana (solo en este laboratorio) |
-| `docs/REGISTRO_SEGURIDAD.md` | Tu registro de revisiones, vulnerabilidades, incidentes y dependencias |
+| `scripts/revisar_local.sh` | Pruebas, Bandit y pip-audit en local antes de hacer push |
+| `scripts/simular_ataque.py` | Ataque de prueba contra un entorno propio para ver la alerta en Grafana |
+| `docs/REGISTRO_SEGURIDAD.md` | Registro de revisiones, vulnerabilidades, incidentes y dependencias |
 
-## Convención de commits (trazabilidad)
+## Correr en local
 
-Cada corrección va en su propio commit y empieza con el identificador del hallazgo:
-`VULN-02: consulta parametrizada en /alumnos/buscar`. Así cada build del registro de
-trazabilidad se puede seguir hasta el hallazgo que corrigió.
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/python -m pytest
+.venv/bin/python app.py        # http://127.0.0.1:5000
+```
 
-## Evidencias que debes subir
+Para que funcione el login hay que definir `ADMIN_CLAVE_HASH` con un hash generado por werkzeug, y en producción también `SECRET_KEY`:
 
-Pega cada captura en **Desarrollo EV3.docx**, en la sección con el mismo número. Al inicio del documento escribe tu nombre
-y la URL de tu repositorio en GitHub. Ninguna captura ni archivo puede mostrar claves (Jenkins, Grafana, API de ZAP).
+```bash
+python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('tu-clave'))"
+```
 
-**Implementación de pipeline e identificación y corrección de vulnerabilidades**
+## Pipeline
 
-1. Pipeline de CI/CD en Jenkins con etapas de construcción, pruebas y despliegue: configuración del job y build en verde.
-2. Revisiones de seguridad continuas en el pipeline (análisis del código y de dependencias) y sus reportes.
-3. Corrección de cada vulnerabilidad: commits `VULN-xx` (diff) y build que verifica la corrección.
-4. Documentación de las revisiones, las vulnerabilidades identificadas y cómo se mitigó cada una (`docs/REGISTRO_SEGURIDAD.md`, secciones 1 y 2).
+1. **Build**: crea el entorno virtual e instala dependencias. La versión queda como `1.0.<build>+<commit>`.
+2. **Test**: pytest, con reporte JUnit.
+3. **Security Review (SAST)**: Bandit sobre `app.py`. Si hay hallazgos Medium o High el build queda UNSTABLE.
+4. **Dependency Management**: pip-audit sobre `requirements.txt`. Si hay CVEs el build queda UNSTABLE.
+5. **Deploy Staging**: despliega en el puerto 5001.
+6. **DAST - OWASP ZAP**: escanea staging. Si hay alertas High o Medium el build queda UNSTABLE.
+7. **Deploy Producción**: solo corre si todo lo anterior salió bien.
 
-**Pruebas automatizadas de seguridad**
+Al final de cada build `scripts/trazabilidad.py` agrega una fila al registro de trazabilidad y Jenkins archiva los reportes (`reports/`).
 
-5. OWASP ZAP integrado en el pipeline de Jenkins: etapa en el `Jenkinsfile` y en la vista de etapas.
-6. Resultados de ZAP sobre el código vulnerable: alertas encontradas y cómo se mitiga cada una (sección 3).
+## Vulnerabilidades corregidas
 
-**Monitorización del entorno de producción**
+Cada corrección está en su propio commit con el ID del hallazgo.
 
-7. Grafana configurado: fuente de datos Prometheus, dashboard de producción y regla de alerta.
-8. Monitoreo en tiempo real: dashboard y alerta mostrando un incidente de seguridad.
-9. Documentación del monitoreo y del incidente: detección, análisis, clasificación, respuesta y verificación (sección 4).
+| ID | Problema | Corrección |
+|---|---|---|
+| VULN-01 | Inyección SQL en `/alumnos/buscar` | Consulta parametrizada |
+| VULN-02 | El error de SQL se mostraba al usuario | Mensaje genérico, el detalle va al log |
+| VULN-03 | XSS reflejado en `/hello` | Se escapa el parámetro `name` |
+| VULN-04 | `SECRET_KEY` escrita en el código | Se lee de una variable de entorno |
+| VULN-05 | Clave admin en MD5 y por defecto `admin/admin` | Hash de werkzeug desde variable de entorno |
+| VULN-06 | Login sin protección CSRF | Token CSRF en el formulario |
+| VULN-07 | `debug=True` y escucha en `0.0.0.0` | Debug apagado y `127.0.0.1` |
+| VULN-08 | Faltaban cabeceras de seguridad | CSP, X-Frame-Options y X-Content-Type-Options |
+| VULN-09 | Sin límite de intentos de login | Bloqueo (429) tras 5 intentos fallidos por IP |
+| VULN-10 | Cookie de sesión sin SameSite | `SameSite=Lax` |
 
-**Gestión de dependencias**
+El detalle está en [`docs/REGISTRO_SEGURIDAD.md`](docs/REGISTRO_SEGURIDAD.md).
 
-10. Dependabot implementado: `.github/dependabot.yml` y alertas activas en GitHub.
-11. Dependencias actualizadas (PR de Dependabot) y build que verifica que no hay nuevas vulnerabilidades.
-12. Documentación del proceso de gestión de dependencias (sección 5).
+## Dependencias
 
-**Documentación y trazabilidad en el SDLC**
+Dependabot revisa `requirements*.txt` todos los días y abre un PR con las actualizaciones. Al fusionarlo, Jenkins vuelve a correr las pruebas, Bandit, pip-audit y ZAP antes de desplegar.
 
-13. Trazabilidad de las actividades del pipeline (revisiones de seguridad, pruebas automatizadas y gestión de dependencias): `TRAZABILIDAD.md` del último build y sección 6.
-14. Documentación que refleje las prácticas de seguridad en todo el ciclo de vida: registro completo en GitHub y pipeline final en verde.
+## Monitoreo
 
-## Referencia del laboratorio
-
-| Servicio | Dirección |
-|---|---|
-| Jenkins | `http://localhost:8080` |
-| Producción (puerto 5000) / Staging (puerto 5001) | `http://localhost:5000` · `http://localhost:5001` (dentro de Docker: `http://jenkins:5000` · `http://jenkins:5001`) |
-| Prometheus | `http://localhost:9090` (dentro de Docker: `http://prometheus:9090`) |
-| Grafana | `http://localhost:3000` (usuario `admin`) |
-| OWASP ZAP | solo red interna: `http://zap:8080`; la clave de su API está en `/run/secrets/zap_api_key` del contenedor de Jenkins |
-
-Métricas de la app: `http_requests_total`, `login_fallidos_total`, `peticiones_sospechosas_total{tipo}`, `app_info{version}`.
+La app expone en `/metrics`: `http_requests_total`, `login_fallidos_total`, `peticiones_sospechosas_total{tipo}` y `app_info{version}`. Prometheus las lee cada 5 segundos y Grafana tiene un dashboard de producción y una alerta cuando aparecen peticiones con patrones de ataque.

@@ -1,6 +1,6 @@
 """!
 @file app.py
-@brief "Sistema Alumnos" de SecureDev: API y portal web de alumnos (Evaluación Parcial 3, OCY1102).
+@brief "Sistema Alumnos" de SecureDev: API y portal web de alumnos.
 
 Además de las rutas de negocio, la app publica métricas para Prometheus en /metrics.
 Las métricas de seguridad (logins fallidos y peticiones sospechosas) se ven en Grafana.

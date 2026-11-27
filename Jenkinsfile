@@ -1,7 +1,5 @@
-// Jenkinsfile - Pipeline de "Sistema Alumnos" (SecureDev · Evaluación Parcial 3 · OCY1102)
-//
-// Esta es la versión BASE: construye, prueba y despliega en producción.
-// Los marcadores  >>> [ETIQUETA]  indican dónde agregar las etapas de seguridad.
+// Jenkinsfile - pipeline de "Sistema Alumnos" (SecureDev)
+// build, pruebas, revisiones de seguridad, staging con ZAP y despliegue a produccion
 pipeline {
     agent any
 
