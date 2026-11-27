@@ -12,7 +12,7 @@ import secrets
 import sqlite3
 import time
 
-from flask import Flask, Response, g, jsonify, render_template_string, request
+from flask import Flask, Response, abort, g, jsonify, render_template_string, request, session
 from markupsafe import escape
 from werkzeug.security import check_password_hash
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
@@ -72,6 +72,7 @@ PORTADA = """<!doctype html>
 </form>
 <h2>Acceso administrador</h2>
 <form action="/login" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input name="usuario" value="admin"> <input name="clave" type="password" value="">
   <button type="submit">Entrar</button>
 </form>
@@ -140,13 +141,33 @@ def despues_de_la_peticion(respuesta):
     return respuesta
 
 
+def generar_token_csrf():
+    """!
+    @brief Crea el token CSRF de la sesion.
+    @return Token de la sesion.
+    """
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
+    return session["csrf_token"]
+
+
+def validar_token_csrf():
+    """!
+    @brief Devuelve 400 si el token del formulario no coincide con el de la sesion.
+    """
+    esperado = session.get("csrf_token", "")
+    recibido = request.form.get("csrf_token", "")
+    if not esperado or not hmac.compare_digest(esperado, recibido):
+        abort(400, description="Token CSRF inválido o ausente")
+
+
 @app.route("/")
 def portada():
     """!
     @brief Portada HTML con enlaces y formularios del sistema.
     @return Página HTML.
     """
-    return render_template_string(PORTADA, version=VERSION)
+    return render_template_string(PORTADA, version=VERSION, csrf_token=generar_token_csrf())
 
 
 @app.route("/hello")
@@ -225,6 +246,7 @@ def login():
     @brief Valida las credenciales del administrador enviadas por formulario.
     @return JSON con el resultado; 401 si las credenciales no son válidas.
     """
+    validar_token_csrf()
     usuario = request.form.get("usuario", "")
     clave = request.form.get("clave", "")
     usuario_ok = hmac.compare_digest(usuario.encode(), ADMIN_USUARIO.encode())
