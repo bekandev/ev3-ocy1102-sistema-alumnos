@@ -1,6 +1,6 @@
 # Dependencias de ejecución de "Sistema Alumnos".
 Flask==2.2.2
 Werkzeug==2.2.2
-Jinja2==3.1.2
+Jinja2==3.1.6
 gunicorn==21.2.0
 prometheus-client==0.17.1
