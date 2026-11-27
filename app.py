@@ -206,8 +206,10 @@ def buscar_alumnos():
     consulta = "SELECT * FROM alumnos WHERE nombre LIKE ?"
     try:
         filas = conectar().execute(consulta, (f"%{nombre}%",)).fetchall()
-    except sqlite3.Error as error:
-        return jsonify({"error": str(error), "consulta": consulta}), 500
+    except sqlite3.Error:
+        # el error real queda en el log, al usuario no se le muestra
+        app.logger.exception("Error de base de datos en /alumnos/buscar")
+        return jsonify({"error": "Error interno al buscar alumnos"}), 500
     return jsonify([dict(f) for f in filas])
 
 
