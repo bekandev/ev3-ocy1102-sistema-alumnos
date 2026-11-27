@@ -28,6 +28,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
 ADMIN_CLAVE_HASH = os.environ.get("ADMIN_CLAVE_HASH", "")
 app.config["SECRET_KEY"] = SECRET_KEY
+## la cookie de sesion no se manda en peticiones de otros sitios
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 ## cabeceras de seguridad que ZAP marco como faltantes
 CABECERAS_SEGURIDAD = {
