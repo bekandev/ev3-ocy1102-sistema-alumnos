@@ -49,12 +49,55 @@ pipeline {
             }
         }
 
-        // >>> [SEGURIDAD]: aquí van las etapas "Security Review (SAST)" y "Dependency Management"
+        stage('Security Review (SAST)') {
+            steps {
+                // bandit (SAST): el json lo usa trazabilidad.py, el txt es para leerlo
+                sh 'bandit -r app.py -f json -o reports/bandit.json --exit-zero'
+                sh 'bandit -r app.py -f txt -o reports/bandit.txt --exit-zero'
+                sh 'cat reports/bandit.txt'
+                // si hay hallazgos medium/high el build queda UNSTABLE (y no se despliega a produccion)
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE', message: 'Bandit encontro hallazgos medium/high') {
+                    sh 'bandit -q -ll -r app.py'
+                }
+            }
+        }
 
-        // >>> [ZAP]: aquí van las etapas "Deploy Staging" y "DAST - OWASP ZAP"
+        stage('Dependency Management') {
+            steps {
+                // pip-audit revisa si requirements.txt tiene CVEs conocidos
+                sh 'pip-audit -r requirements.txt -f json -o reports/pip-audit.json || true'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE', message: 'pip-audit encontro dependencias vulnerables') {
+                    sh 'pip-audit -r requirements.txt --desc on > reports/pip-audit.txt 2>&1; rc=$?; cat reports/pip-audit.txt; exit $rc'
+                }
+            }
+        }
+
+        stage('Deploy Staging') {
+            steps {
+                sh 'bash scripts/deploy.sh staging 5001'
+            }
+        }
+
+        stage('DAST - OWASP ZAP') {
+            steps {
+                // escaneo de zap sobre staging (spider + pasivo + activo)
+                script {
+                    def rc = sh(returnStatus: true, script: 'python3 scripts/zap_scan.py http://jenkins:5001')
+                    if (rc == 2) {
+                        unstable('ZAP encontro alertas high/medium')
+                    } else if (rc != 0) {
+                        error("Fallo el escaneo de ZAP (codigo ${rc})")
+                    }
+                }
+            }
+        }
 
         stage('Deploy Producción') {
-            // >>> [GATE]: aquí va la condición "when" que protege producción
+            // solo se despliega a produccion si todo lo anterior paso
+            when {
+                beforeAgent true
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
             steps {
                 sh 'bash scripts/deploy.sh produccion 5000'
                 script { env.PRODUCCION = env.APP_VERSION }
