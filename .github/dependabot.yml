@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    # todo en un solo PR, flask/werkzeug/jinja2 se tienen que actualizar juntos
+    groups:
+      dependencias-python:
+        patterns: ["*"]
