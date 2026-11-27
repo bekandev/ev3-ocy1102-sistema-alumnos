@@ -1,6 +1,6 @@
 # Sistema Alumnos
 
-API y portal web hecho en Flask para consultar alumnos de SecureDev. Tiene un pipeline en Jenkins que construye, prueba, revisa la seguridad del código y de las dependencias, escanea la app con OWASP ZAP y recién ahí la despliega a producción. Producción se monitorea con Prometheus y Grafana.
+API y portal web en Flask para consultar alumnos de SecureDev. El pipeline de Jenkins construye la app, corre las pruebas, revisa el código y las dependencias, la escanea con OWASP ZAP y recién ahí la despliega a producción. Producción la vigilo con Prometheus y Grafana.
 
 ## Rutas
 
@@ -60,7 +60,7 @@ Al final de cada build `scripts/trazabilidad.py` agrega una fila al registro de 
 
 ## Vulnerabilidades corregidas
 
-Cada corrección está en su propio commit con el ID del hallazgo.
+Cada corrección va en su propio commit con el ID del hallazgo.
 
 | ID | Problema | Corrección |
 |---|---|---|
@@ -79,7 +79,7 @@ El detalle está en [`docs/REGISTRO_SEGURIDAD.md`](docs/REGISTRO_SEGURIDAD.md).
 
 ## Dependencias
 
-Dependabot revisa `requirements*.txt` todos los días y abre un PR con las actualizaciones. Al fusionarlo, Jenkins vuelve a correr las pruebas, Bandit, pip-audit y ZAP antes de desplegar.
+Dependabot revisa `requirements*.txt` todos los días y abre un PR con las actualizaciones. Cuando se fusiona, Jenkins vuelve a pasar las pruebas, Bandit, pip-audit y ZAP antes de desplegar.
 
 ## Monitoreo
 

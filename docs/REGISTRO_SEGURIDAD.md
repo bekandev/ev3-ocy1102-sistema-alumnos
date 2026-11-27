@@ -2,7 +2,7 @@
 
 Responsable: Jose Manuel Gonzalez Toloza · Repositorio: https://github.com/bekandev/ev3-ocy1102-sistema-alumnos · Fecha: 27-11-2026
 
-Cada corrección tiene su commit con el identificador `VULN-xx` en el mensaje, y cada resultado sale de un build de Jenkins. Las horas de Jenkins (tabla de trazabilidad) están en UTC; las horas del monitoreo están en hora local (UTC-3).
+Cada corrección va en su propio commit con el `VULN-xx` en el mensaje y los resultados salen de los builds de Jenkins. Ojo que las horas de Jenkins (tabla de trazabilidad) están en UTC y las del monitoreo en hora local (UTC-3).
 
 ## 1. Revisiones de seguridad realizadas
 
@@ -16,7 +16,7 @@ Cada corrección tiene su commit con el identificador `VULN-xx` en el mensaje, y
 
 ## 2. Vulnerabilidades identificadas y corregidas
 
-Las ubicaciones corresponden al código original (commit `00bac91`).
+Las líneas son las del código original (commit `00bac91`).
 
 | ID | Vulnerabilidad (CWE) | Detectada por | Ubicación | Riesgo | Corrección aplicada | Commit | Build que lo verifica |
 |---|---|---|---|---|---|---|---|
@@ -44,7 +44,7 @@ Las ubicaciones corresponden al código original (commit `00bac91`).
 | X-Content-Type-Options Header Missing | Low | `http://jenkins:5001/alumnos/1` | VULN-08 | X-Content-Type-Options: nosniff | Sí, build #2 |
 | Cookie without SameSite Attribute (apareció en build #2) | Low | `http://jenkins:5001` | VULN-10 | `SESSION_COOKIE_SAMESITE = "Lax"` | Sí, build #4 |
 
-En los builds #4 y #7 ZAP solo deja 2 alertas informativas (Session Management Response Identified y User Agent Fuzzer), que no son vulnerabilidades.
+En los builds #4 y #7 ZAP solo deja 2 alertas informativas (Session Management Response Identified y User Agent Fuzzer). Esas no son vulnerabilidades.
 
 ## 4. Monitoreo e incidentes
 
@@ -59,7 +59,7 @@ Grafana lee las métricas que Prometheus saca de `/metrics` de producción: `pet
 
 ## 5. Gestión de dependencias
 
-Dependabot está configurado en `.github/dependabot.yml` y agrupa las actualizaciones de pip en un solo PR. pip-audit corre en cada build, así que cualquier versión nueva queda revisada antes de llegar a producción.
+Dependabot está configurado en `.github/dependabot.yml` y agrupa las actualizaciones de pip en un solo PR. Como pip-audit corre en cada build, cualquier versión nueva se revisa antes de llegar a producción.
 
 | Paquete | Versión inicial | Vulnerabilidades (IDs) | Versión final | Origen del cambio (PR de Dependabot / manual) | ¿Pruebas, pip-audit y ZAP siguen OK? Build |
 |---|---|---|---|---|---|
@@ -86,7 +86,7 @@ El PR #1 (commit `e98cbe3`, merge `c6e1ea4`) actualizó los 6 paquetes de una ve
 | 6 | 2026-11-27 20:29 | 1.0.6+c6e1ea4 | `c6e1ea4` | Merge pull request #1 (Dependabot) | 9/9 OK | 0/0/0 | 0 vuln. | n/a | FAILURE | no desplegado |
 | 7 | 2026-11-27 20:31 | 1.0.7+c6e1ea4 | `c6e1ea4` | Merge pull request #1 (Dependabot) | 9/9 OK | 0/0/0 | 0 vuln. | 0/0/0 | SUCCESS | 1.0.7+c6e1ea4 |
 
-Los builds #3, #5 y #6 fallaron en Deploy Staging. La causa fue que dos jobs de prueba anteriores (`sistema-alumnos-old` y `sistema-alumnos-old2`) seguían habilitados, revisaban el mismo repositorio y desplegaban su propio staging en el puerto 5001 al mismo tiempo. Al detectarlo se deshabilitaron y el build #7 pasó completo. Por esa misma razón el archivo `TRAZABILIDAD.md` que guarda Jenkins tiene además algunas filas de esos dos jobs; la tabla de arriba deja solo las de este job.
+Los builds #3, #5 y #6 fallaron en Deploy Staging. La causa fue que dos jobs de prueba anteriores (`sistema-alumnos-old` y `sistema-alumnos-old2`) seguían habilitados, revisaban el mismo repositorio y desplegaban su propio staging en el puerto 5001 al mismo tiempo. Cuando me di cuenta los deshabilité y el build #7 pasó completo. Por esa misma razón el archivo `TRAZABILIDAD.md` que guarda Jenkins tiene además algunas filas de esos dos jobs; la tabla de arriba deja solo las de este job.
 
 | Actividad | Hallazgo | Build que lo detectó | Commit / PR que lo resolvió | Build que lo verificó | Versión en producción |
 |---|---|---|---|---|---|
