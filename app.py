@@ -10,7 +10,9 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import time
+from collections import defaultdict, deque
 
 from flask import Flask, Response, abort, g, jsonify, render_template_string, request, session
 from markupsafe import escape
@@ -54,6 +56,36 @@ LOGIN_EXITOSOS = Counter("login_exitosos_total", "Inicios de sesión correctos")
 SOSPECHOSAS = Counter("peticiones_sospechosas_total", "Peticiones con patrones de ataque", ["tipo"])
 APP_INFO = Gauge("app_info", "Versión desplegada de la aplicación", ["version"])
 APP_INFO.labels(version=VERSION).set(1)
+
+## limite de intentos de login por ip (en memoria, sirve con 1 worker de gunicorn)
+MAX_INTENTOS_LOGIN = int(os.environ.get("MAX_INTENTOS_LOGIN", "5"))
+VENTANA_LOGIN_S = int(os.environ.get("VENTANA_LOGIN_S", "300"))
+INTENTOS_LOGIN = defaultdict(deque)
+_CANDADO_LOGIN = threading.Lock()
+
+
+def login_bloqueado(ip):
+    """!
+    @brief Revisa si la ip tiene demasiados intentos fallidos.
+    @param ip Ip del cliente.
+    @return True si hay que responder 429.
+    """
+    ahora = time.monotonic()
+    with _CANDADO_LOGIN:
+        intentos = INTENTOS_LOGIN[ip]
+        while intentos and ahora - intentos[0] > VENTANA_LOGIN_S:
+            intentos.popleft()
+        return len(intentos) >= MAX_INTENTOS_LOGIN
+
+
+def registrar_fallo(ip):
+    """!
+    @brief Guarda un intento fallido de la ip.
+    @param ip Ip del cliente.
+    """
+    with _CANDADO_LOGIN:
+        INTENTOS_LOGIN[ip].append(time.monotonic())
+
 
 ## Patrones que delatan un intento de ataque (detección, no bloqueo).
 PATRONES_ATAQUE = {
@@ -256,6 +288,12 @@ def login():
     @return JSON con el resultado; 401 si las credenciales no son válidas.
     """
     validar_token_csrf()
+    ip = request.remote_addr or "desconocida"
+    if login_bloqueado(ip):
+        # igual se cuenta como fallido para que se vea en grafana
+        LOGIN_FALLIDOS.inc()
+        app.logger.warning("Login bloqueado por exceso de intentos desde %s", ip)
+        return jsonify({"error": "Demasiados intentos. Intenta más tarde."}), 429
     usuario = request.form.get("usuario", "")
     clave = request.form.get("clave", "")
     usuario_ok = hmac.compare_digest(usuario.encode(), ADMIN_USUARIO.encode())
@@ -264,6 +302,7 @@ def login():
         LOGIN_EXITOSOS.inc()
         return jsonify({"mensaje": "Bienvenido, administrador"})
     LOGIN_FALLIDOS.inc()
+    registrar_fallo(ip)
     app.logger.warning("Login fallido para el usuario '%s' desde %s", usuario, request.remote_addr)
     return jsonify({"error": "Credenciales inválidas"}), 401
 
