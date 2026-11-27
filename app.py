@@ -27,6 +27,13 @@ ADMIN_USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
 ADMIN_CLAVE_HASH = os.environ.get("ADMIN_CLAVE_HASH", "")
 app.config["SECRET_KEY"] = SECRET_KEY
 
+## cabeceras de seguridad que ZAP marco como faltantes
+CABECERAS_SEGURIDAD = {
+    "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'; form-action 'self'",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+}
+
 ## Versión desplegada: la inyecta el pipeline (1.0.<build>+<commit>). Sirve para la trazabilidad.
 VERSION = os.environ.get("APP_VERSION", "dev")
 ## Archivo SQLite con los alumnos (cada entorno usa el suyo).
@@ -134,6 +141,8 @@ def despues_de_la_peticion(respuesta):
     @param respuesta Respuesta que Flask enviará al cliente.
     @return La misma respuesta.
     """
+    for nombre, valor in CABECERAS_SEGURIDAD.items():
+        respuesta.headers.setdefault(nombre, valor)
     endpoint = request.url_rule.rule if request.url_rule else "desconocido"
     if endpoint != "/metrics":
         HTTP_PETICIONES.labels(request.method, endpoint, str(respuesta.status_code)).inc()
